@@ -127,3 +127,58 @@ BEGIN
     END CATCH
 END
 GO
+
+/* ========================== PR2 ==========================  */
+/* Cambio de Roles    */
+CREATE OR ALTER PROCEDURE practica1.PR2
+(
+    @Email NVARCHAR(200),
+    @CodCourse INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        DECLARE @uid UNIQUEIDENTIFIER = (SELECT Id FROM practica1.Usuarios WHERE Email=@Email);
+        IF @uid IS NULL THROW 50010, 'PR2: Usuario no existe', 1;
+
+        IF (SELECT EmailConfirmed FROM practica1.Usuarios WHERE Id=@uid) <> 1
+            THROW 50011, 'PR2: Email no confirmado', 1;
+
+        DECLARE @roleTutor UNIQUEIDENTIFIER =
+            (SELECT TOP 1 Id FROM practica1.Roles WHERE RoleName='Tutor');
+        IF @roleTutor IS NULL THROW 50012, 'PR2: Rol Tutor no existe', 1;
+
+        IF NOT EXISTS (SELECT 1 FROM practica1.UsuarioRole WHERE UserId=@uid AND RoleId=@roleTutor)
+            INSERT INTO practica1.UsuarioRole(RoleId, UserId, IsLatestVersion)
+            VALUES (@roleTutor, @uid, 1);
+
+        IF NOT EXISTS (SELECT 1 FROM practica1.TutorProfile WHERE UserId=@uid)
+            INSERT INTO practica1.TutorProfile(UserId, TutorCode)
+            VALUES (@uid, CONCAT('TUT-', RIGHT(CONVERT(NVARCHAR(36), NEWID()), 8)));
+
+        IF NOT EXISTS (SELECT 1 FROM practica1.Course WHERE CodCourse=@CodCourse)
+            THROW 50013, 'PR2: Curso no existe', 1;
+
+        IF NOT EXISTS (SELECT 1 FROM practica1.CourseTutor WHERE TutorId=@uid AND CourseCodCourse=@CodCourse)
+            INSERT INTO practica1.CourseTutor(TutorId, CourseCodCourse)
+            VALUES (@uid, @CodCourse);
+
+        INSERT INTO practica1.Notification(UserId,[Message],[Date])
+        VALUES (@uid, N'Promovido a Tutor del curso ' + CONVERT(NVARCHAR(10),@CodCourse), SYSDATETIME());
+
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR2: OK -> ' + @Email + ' / curso ' + CONVERT(NVARCHAR(10),@CodCourse));
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR2: Error -> ' + ERROR_MESSAGE());
+        THROW;
+    END CATCH
+END
+GO
