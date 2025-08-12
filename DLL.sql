@@ -37,3 +37,35 @@ BEGIN
     END CATCH
 END
 GO
+
+/* ========================== PR5 ==========================  */
+/* Creación de Cursos  */
+CREATE OR ALTER PROCEDURE practica1.PR5
+(
+    @Name NVARCHAR(200),
+    @CreditsRequired INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        DECLARE @CodCourse INT = (SELECT ISNULL(MAX(CodCourse),0)+1 FROM practica1.Course);
+
+        INSERT INTO practica1.Course(CodCourse,[Name],CreditsRequired)
+        VALUES (@CodCourse,@Name,@CreditsRequired);
+
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR5: Curso creado -> ' + @Name);
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR5: Error -> ' + ERROR_MESSAGE());
+        THROW;
+    END CATCH
+END
+GO
