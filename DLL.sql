@@ -69,3 +69,61 @@ BEGIN
     END CATCH
 END
 GO
+
+/* ========================== PR1 ==========================  */
+/* Registro de Usuarios   */
+CREATE OR ALTER PROCEDURE practica1.PR1
+(
+    @Firstname    NVARCHAR(100),
+    @Lastname     NVARCHAR(100),
+    @Email        NVARCHAR(200),
+    @DateOfBirth  DATETIME2(7),
+    @Password     NVARCHAR(200),
+    @Credits      INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        IF EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email=@Email)
+            THROW 50001, 'PR1: Email ya existe', 1;
+
+        DECLARE @uid UNIQUEIDENTIFIER = NEWID();
+        DECLARE @now DATETIME2(7) = SYSDATETIME();
+
+        INSERT INTO practica1.Usuarios(Id, Firstname, Lastname, Email, DateOfBirth, [Password], LastChanges, EmailConfirmed)
+        VALUES (@uid, @Firstname, @Lastname, @Email, @DateOfBirth, @Password, @now, 1);
+
+        INSERT INTO practica1.ProfileStudent(UserId, Credits)
+        VALUES (@uid, @Credits);
+
+        INSERT INTO practica1.TFA(UserId, [Status], LastUpdate)
+        VALUES (@uid, 0, @now);
+
+        DECLARE @roleStudent UNIQUEIDENTIFIER =
+            (SELECT TOP 1 Id FROM practica1.Roles WHERE RoleName='Student');
+
+        IF @roleStudent IS NULL
+            THROW 50002, 'PR1: Rol Student no existe (ejecuta PR4 ''Student'')', 1;
+
+        INSERT INTO practica1.UsuarioRole(RoleId, UserId, IsLatestVersion)
+        VALUES (@roleStudent, @uid, 1);
+
+        INSERT INTO practica1.Notification(UserId,[Message],[Date])
+        VALUES (@uid, N'Bienvenido. Usuario registrado.', @now);
+
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (@now, 'PR1: Usuario Registrado -> ' + @Email);
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR1: Error -> ' + ERROR_MESSAGE());
+        THROW;
+    END CATCH
+END
+GO
