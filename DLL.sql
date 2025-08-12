@@ -233,3 +233,41 @@ BEGIN
         THROW;
     END CATCH
 END
+
+/* ========================== PR6 ==========================  */
+/*  Validación de Datos  */
+CREATE OR ALTER PROCEDURE practica1.PR6
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='CK_Usuarios_Firstname_OnlyLetters')
+            ALTER TABLE practica1.Usuarios
+            ADD CONSTRAINT CK_Usuarios_Firstname_OnlyLetters
+            CHECK (Firstname NOT LIKE '%[^A-Za-zÁÉÍÓÚáéíóúÑñ ]%');
+
+        IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='CK_Usuarios_Lastname_OnlyLetters')
+            ALTER TABLE practica1.Usuarios
+            ADD CONSTRAINT CK_Usuarios_Lastname_OnlyLetters
+            CHECK (Lastname NOT LIKE '%[^A-Za-zÁÉÍÓÚáéíóúÑñ ]%');
+
+        IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='CK_Course_CreditsRequired_NonNegative')
+            ALTER TABLE practica1.Course
+            ADD CONSTRAINT CK_Course_CreditsRequired_NonNegative
+            CHECK (CreditsRequired >= 0);
+
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR6: OK Restricciones');
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR6: Error -> ' + ERROR_MESSAGE());
+        THROW;
+    END CATCH
+END
+GO
