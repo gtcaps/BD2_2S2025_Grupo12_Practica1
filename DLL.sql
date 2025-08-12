@@ -182,3 +182,54 @@ BEGIN
     END CATCH
 END
 GO
+
+/* ========================== PR3 ==========================  */
+/* Asignación de Curso   */
+CREATE OR ALTER PROCEDURE practica1.PR3
+(
+    @Email NVARCHAR(200),
+    @CodCourse INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRAN;
+
+        DECLARE @uid UNIQUEIDENTIFIER = (SELECT Id FROM practica1.Usuarios WHERE Email=@Email);
+        IF @uid IS NULL THROW 50020, 'PR3: Usuario no existe', 1;
+
+        DECLARE @credits INT = (SELECT Credits FROM practica1.ProfileStudent WHERE UserId=@uid);
+        IF @credits IS NULL THROW 50021, 'PR3: Perfil estudiante no existe', 1;
+
+        DECLARE @req INT = (SELECT CreditsRequired FROM practica1.Course WHERE CodCourse=@CodCourse);
+        IF @req IS NULL THROW 50022, 'PR3: Curso no existe', 1;
+
+        IF @credits < @req THROW 50023, 'PR3: Créditos insuficientes', 1;
+
+        IF NOT EXISTS (SELECT 1 FROM practica1.CourseAssignment WHERE StudentId=@uid AND CourseCodCourse=@CodCourse)
+            INSERT INTO practica1.CourseAssignment(StudentId, CourseCodCourse)
+            VALUES (@uid, @CodCourse);
+
+        INSERT INTO practica1.Notification(UserId,[Message],[Date])
+        VALUES (@uid, N'Asignado al curso ' + CONVERT(NVARCHAR(10),@CodCourse), SYSDATETIME());
+
+        INSERT INTO practica1.Notification(UserId,[Message],[Date])
+        SELECT ct.TutorId,
+               N'Estudiante ' + @Email + N' asignado al curso ' + CONVERT(NVARCHAR(10),@CodCourse),
+               SYSDATETIME()
+        FROM practica1.CourseTutor ct
+        WHERE ct.CourseCodCourse=@CodCourse;
+
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR3: OK -> ' + @Email + ' / curso ' + CONVERT(NVARCHAR(10),@CodCourse));
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        INSERT INTO practica1.HistoryLog([Date],[Description])
+        VALUES (SYSDATETIME(), 'PR3: Error -> ' + ERROR_MESSAGE());
+        THROW;
+    END CATCH
+END
