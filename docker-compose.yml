@@ -1,0 +1,21 @@
+services:
+  sql2019:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sql2019express
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "P@ssw0rd_Str0ng!2025"
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "P@ssw0rd_Str0ng!2025", "-Q", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  mssql_data:
